@@ -1,48 +1,59 @@
-// #include "Arduino.h"
-// #include <TFT_eSPI.h>
-
-// extern "C" void app_main()
-// {
-//     initArduino();
-//     pinMode(4, OUTPUT);
-//     digitalWrite(4, HIGH);
-//     // Do your own thing
-// }
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "TFT_eSPI.h"  // Include the graphics library (TFT_eSPI)
+#include <SPI.h>
 
-static const char *TAG = "Main";
+#define TDELAY 500  // Delay time in milliseconds
 
-// Create an instance of the TFT_eSPI class
-TFT_eSPI tft = TFT_eSPI();
+TFT_eSPI tft = TFT_eSPI();  // Create an instance of the TFT_eSPI library
 
-extern "C" void app_main(void) {  // Ensure C linkage for app_main
-    ESP_LOGI(TAG, "Initializing display...");
+// Function prototypes
+void setup();
+void loop();
 
-    // Initialize the display
+// Setup function
+void setup() {
+    // Initialize the TFT display
     tft.init();
-    tft.setRotation(1);  // Set display rotation (0-3)
-    tft.fillScreen(TFT_BLACK);  // Clear the screen with a black background
+    tft.fillScreen(0xF81F);  // Fill screen with a color (0xF81F)
+}
 
-    // Set text properties
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);  // Set text color to white and background to black
-    tft.setTextSize(2);  // Set the size of the text
+// Loop function
+void loop() {
+    static uint32_t wr = 1;
+    static uint32_t rd = 0xFFFFFFFF;
+    // static int wr = 1;
+    // static int rd = 0xFFFFFFFF;
 
-    ESP_LOGI(TAG, "Displaying 'Hello, World!'...");
+    vTaskDelay(pdMS_TO_TICKS(TDELAY));  // Delay for TDELAY milliseconds
 
-    // Print "Hello, World!" at the center of the screen
-    if (!tft.fontLoaded) {
-        ESP_LOGE(TAG, "Font not loaded!");
-        return;
+    // Draw a pixel and read its value
+    tft.drawPixel(30, 30, wr);
+    ESP_LOGI("TAG", "Pixel value written = %04X", static_cast<unsigned int>(wr));
+
+
+    rd = tft.readPixel(30, 30);
+    ESP_LOGI("TAG", "Pixel value read = %04X", static_cast<unsigned int>(rd));
+
+    if (rd != wr) {
+        ESP_LOGE("TFT", "ERROR: Written and read values do not match!");
+    } else {
+        ESP_LOGI("TFT", "PASS");
     }
 
-    tft.drawString("Hello, World!", 60, 120, 4);  // Text, X position, Y position, Font size
+    // Walking 1 test
+    wr = wr << 1;
+    if (wr >= 0x10000) wr = 1;
+}
 
-    // Keep the task alive; otherwise, the program will exit
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));  // Delay for 1000 ms
+// Main application entry point
+extern "C" void app_main() {
+    setup();  // Call the setup function
+
+    // Run the loop function indefinitely
+    while (true) {
+        loop();
+        vTaskDelay(pdMS_TO_TICKS(1000));  // Delay for 1 second
     }
 }
